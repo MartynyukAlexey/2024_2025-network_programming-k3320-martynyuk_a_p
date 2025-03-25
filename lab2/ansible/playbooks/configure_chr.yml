@@ -1,0 +1,61 @@
+---
+- name: Configure MikroTik CHR devices
+  hosts: chr_devices
+  gather_facts: false
+  connection: community.routeros.api
+  vars:
+    ntp_primary: "pool.ntp.org"
+    ospf_area: "backbone"
+    ospf_network: "10.0.0.0/24"
+
+  tasks:
+    - name: Change admin password
+      community.routeros.routeros_command:
+        commands:
+          - "/user set admin password={{ new_password }}"
+      vars:
+        ansible_password: "{{ current_password }}"
+      no_log: true
+
+    - name: Configure NTP
+      community.routeros.routeros_command:
+        commands:
+          - "/system ntp client set enabled=yes primary-ntp={{ ntp_primary }}"
+      vars:
+        ansible_password: "{{ new_password }}"
+
+    - name: Configure OSPF Instance
+      community.routeros.routeros_command:
+        commands:
+          - "/routing ospf instance set [ find default=yes ] router-id={{ router_id }}"
+          - "/routing ospf network add network={{ ospf_network }} area={{ ospf_area }}"
+      vars:
+        ansible_password: "{{ new_password }}"
+
+    - name: Collect OSPF information
+      community.routeros.routeros_command:
+        commands:
+          - "/routing ospf neighbor print"
+          - "/routing ospf instance print"
+          - "/routing ospf interface print"
+      vars:
+        ansible_password: "{{ new_password }}"
+      register: ospf_data
+
+    - name: Save OSPF output
+      ansible.builtin.copy:
+        content: "{{ ospf_data.stdout | to_nice_json }}"
+        dest: "./ospf_info_{{ inventory_hostname }}.json"
+
+    - name: Get full config
+      community.routeros.routeros_command:
+        commands:
+          - "/export"
+      vars:
+        ansible_password: "{{ new_password }}"
+      register: full_config
+
+    - name: Save configuration
+      ansible.builtin.copy:
+        content: "{{ full_config.stdout }}"
+        dest: "./config_backup_{{ inventory_hostname }}.rsc"

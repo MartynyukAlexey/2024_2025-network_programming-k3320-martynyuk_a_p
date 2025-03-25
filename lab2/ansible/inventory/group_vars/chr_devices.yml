@@ -1,0 +1,5 @@
+ntp_primary: "pool.ntp.org"
+ospf_area: "backbone"
+ospf_network: "10.0.0.0/24"
+current_password: "password"
+new_password: "new_password"

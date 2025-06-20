@@ -1,0 +1,47 @@
+---
+- name: Configure MikroTik routers - password, NTP, OSPF and gather info
+  hosts: mikrotik
+  gather_facts: no
+  connection: network_cli
+  collections:
+    - community.routeros
+
+  vars:
+    username: admin
+    new_password: password
+
+  tasks:
+    - name: Change password for existing user
+      community.routeros.command:
+        commands:
+          - /user set [find name={{ username }}] password={{ new_password }}
+
+    - name: Enable NTP client and set NTP servers
+      community.routeros.command:
+        commands:
+          - /system ntp client set enabled=yes server-dns-names=0.pool.ntp.org,1.pool.ntp.org,2.pool.ntp.org,3.pool.ntp.org
+
+    - name: Configure OSPF Router ID
+      community.routeros.command:
+        commands:
+          - /routing ospf instance set 0 router-id={{ router_id }}
+
+    - name: Gather OSPF neighbors (topology)
+      community.routeros.command:
+        commands:
+          - /routing ospf neighbor print detail
+      register: ospf_neighbors
+
+    - name: Show OSPF neighbors
+      ansible.builtin.debug:
+        var: ospf_neighbors.stdout_lines
+
+    - name: Gather full router configuration export
+      community.routeros.command:
+        commands:
+          - /export
+      register: full_config
+
+    - name: Show full router configuration
+      ansible.builtin.debug:
+        var: full_config.stdout_lines
